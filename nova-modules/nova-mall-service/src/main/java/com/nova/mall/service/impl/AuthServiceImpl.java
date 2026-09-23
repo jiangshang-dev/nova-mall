@@ -38,13 +38,13 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     public LoginVO login(LoginDTO dto) {
-        SysUser user = sysUserMapper.selectOne(new LambdaQueryWrapper<SysUser>().eq(SysUser::getUserName, dto.getUsername()).last("LIMIT 1"));
-        if (user == null) throw new ServiceException(401, "用户名或密码错误");
+        SysUser user = findByAccount(dto.getUsername());
+        if (user == null) throw new ServiceException(401, "账号或密码错误");
         if (user.getStatus() != null && user.getStatus() == 0) throw new ServiceException(403, "账号已禁用");
         if (!passwordEncoder.matches(dto.getPassword(), user.getPassword()))
-            throw new ServiceException(401, "用户名或密码错误");
+            throw new ServiceException(401, "账号或密码错误");
         String clientType = StrUtil.blankToDefault(dto.getClientType(), "admin");
-        if ("admin".equalsIgnoreCase(clientType) && (user.getUserFlag() == null || !UserFlagEnum.ADMIN.getCode().equals(user.getUserFlag()))) {
+        if ("admin".equalsIgnoreCase(clientType) && user.getUserFlag() != UserFlagEnum.ADMIN) {
             throw new ServiceException(403, "非管理员账号，无法登录管理端");
         }
         LoginUser loginUser = buildLoginUser(user);
@@ -83,13 +83,39 @@ public class AuthServiceImpl implements AuthService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void register(LoginDTO dto) {
-        Long count = sysUserMapper.selectCount(new LambdaQueryWrapper<SysUser>().eq(SysUser::getUserName, dto.getUsername()));
-        if (count != null && count > 0) throw new ServiceException("用户名已存在");
+        String account = StrUtil.trim(dto.getUsername());
+        String email = StrUtil.trim(dto.getEmail());
+        String phone = StrUtil.trim(dto.getPhone());
+        // 注册优先邮箱：未传 email 且账号像邮箱时写入 email
+        if (StrUtil.isBlank(email) && account != null && account.contains("@")) {
+            email = account;
+        }
+        if (StrUtil.isBlank(email) && StrUtil.isBlank(phone) && StrUtil.isBlank(account)) {
+            throw new ServiceException("请填写邮箱或账号");
+        }
+        if (StrUtil.isNotBlank(account)) {
+            Long c = sysUserMapper.selectCount(new LambdaQueryWrapper<SysUser>().eq(SysUser::getUserName, account));
+            if (c != null && c > 0) throw new ServiceException("用户名已存在");
+        }
+        if (StrUtil.isNotBlank(email)) {
+            Long c = sysUserMapper.selectCount(new LambdaQueryWrapper<SysUser>().eq(SysUser::getEmail, email));
+            if (c != null && c > 0) throw new ServiceException("邮箱已被注册");
+        }
+        if (StrUtil.isNotBlank(phone)) {
+            Long c = sysUserMapper.selectCount(new LambdaQueryWrapper<SysUser>().eq(SysUser::getPhone, phone));
+            if (c != null && c > 0) throw new ServiceException("手机号已被注册");
+        }
+        String userName = StrUtil.blankToDefault(account, email);
+        if (StrUtil.isBlank(userName)) {
+            userName = phone;
+        }
         SysUser user = new SysUser();
-        user.setUserName(dto.getUsername());
+        user.setUserName(userName);
         user.setPassword(passwordEncoder.encode(dto.getPassword()));
-        user.setUserRealName(dto.getUsername());
-        user.setUserFlag(UserFlagEnum.COMMON.getCode());
+        user.setUserRealName(userName);
+        user.setEmail(email);
+        user.setPhone(phone);
+        user.setUserFlag(UserFlagEnum.COMMON);
         user.setStatus(1);
         sysUserMapper.insert(user);
         SysUserRole ur = new SysUserRole();
@@ -98,13 +124,26 @@ public class AuthServiceImpl implements AuthService {
         sysUserRoleMapper.insert(ur);
     }
 
+    /**
+     * 支持用户名 / 邮箱 / 手机号登录
+     */
+    private SysUser findByAccount(String account) {
+        if (StrUtil.isBlank(account)) return null;
+        String acc = account.trim();
+        return sysUserMapper.selectOne(new LambdaQueryWrapper<SysUser>()
+                .and(w -> w.eq(SysUser::getUserName, acc)
+                        .or().eq(SysUser::getEmail, acc)
+                        .or().eq(SysUser::getPhone, acc))
+                .last("LIMIT 1"));
+    }
+
     private LoginUser buildLoginUser(SysUser user) {
         if (user == null) throw new ServiceException(401, "用户不存在");
         LoginUser loginUser = new LoginUser();
         loginUser.setId(user.getId());
         loginUser.setUserName(user.getUserName());
         loginUser.setUserRealName(user.getUserRealName());
-        loginUser.setUserFlag(UserFlagEnum.getEnumByCode(user.getUserFlag()));
+        loginUser.setUserFlag(user.getUserFlag());
         List<String> roles = sysPermissionMapper.selectRoleCodesByUserId(user.getId());
         List<String> perms = sysPermissionMapper.selectPermsByUserId(user.getId());
         loginUser.setRoles(roles == null ? Collections.emptyList() : roles);

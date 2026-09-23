@@ -25,6 +25,7 @@ public class FileController {
     @PreAuthorize("isAuthenticated()")
     @PostMapping("/upload")
     public R<String> upload(@RequestParam("file") MultipartFile file) {
-        return R.ok(fileStorageService.upload(file));
+        String path = fileStorageService.upload(file);
+        return R.ok(fileStorageService.fileUrl(path));
     }
 }

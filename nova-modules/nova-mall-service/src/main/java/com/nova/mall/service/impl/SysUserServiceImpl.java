@@ -42,7 +42,7 @@ public class SysUserServiceImpl extends ServiceImpl<SysUserMapper, SysUser> impl
             throw new ServiceException("用户名已存在");
         if (StrUtil.isBlank(user.getPassword())) user.setPassword("admin123");
         user.setPassword(passwordEncoder.encode(user.getPassword()));
-        if (user.getUserFlag() == null) user.setUserFlag(UserFlagEnum.ADMIN.getCode());
+        if (user.getUserFlag() == null) user.setUserFlag(UserFlagEnum.ADMIN);
         if (user.getStatus() == null) user.setStatus(1);
         this.save(user);
         assignRoles(user.getId(), roleIds);

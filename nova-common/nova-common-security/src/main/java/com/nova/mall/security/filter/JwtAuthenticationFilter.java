@@ -62,10 +62,13 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         if (loginUser.getId() == null) return;
         String cache = cacheService.get(PERM_CACHE_PREFIX + loginUser.getId());
         if (StrUtil.isBlank(cache)) return;
-        LoginUser cached = JSONUtil.toBean(cache, LoginUser.class);
-        if (cached != null) {
-            loginUser.setRoles(cached.getRoles());
-            loginUser.setPermissions(cached.getPermissions());
+        try {
+            // 只取权限字段（与 material-app 一致：枚举从 JWT 解析，不整对象 toBean）
+            var obj = JSONUtil.parseObj(cache);
+            loginUser.setRoles(obj.getBeanList("roles", String.class));
+            loginUser.setPermissions(obj.getBeanList("permissions", String.class));
+        } catch (Exception ignored) {
+            // 缓存损坏时忽略，后续接口可按需重新拉权限
         }
     }
 

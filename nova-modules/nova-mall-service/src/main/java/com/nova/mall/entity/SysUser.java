@@ -2,6 +2,7 @@ package com.nova.mall.entity;
 
 import com.baomidou.mybatisplus.annotation.*;
 import com.nova.mall.base.BaseModel;
+import com.nova.mall.system.enums.UserFlagEnum;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 
@@ -17,7 +18,8 @@ public class SysUser extends BaseModel {
     private String phone;
     private String email;
     private String avatar;
-    private Integer userFlag;
+    /** 1内部 2管理员 3普通用户，MyBatis-Plus IEnum 自动映射 */
+    private UserFlagEnum userFlag;
     private Integer status;
     @TableLogic
     private Integer deleted;

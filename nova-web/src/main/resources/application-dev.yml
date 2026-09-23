@@ -14,8 +14,8 @@ spring:
   rabbitmq:
     host: localhost
     port: 5672
-    username: guest
-    password: guest
+    username: admin
+    password: admin
     virtual-host: /
   elasticsearch:
     uris: http://localhost:9200

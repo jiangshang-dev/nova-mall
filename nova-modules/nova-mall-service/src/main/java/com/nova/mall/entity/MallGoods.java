@@ -16,8 +16,13 @@ public class MallGoods extends BaseModel {
     private Integer categoryId;
     private String name;
     private String subTitle;
+    /** 商品详情（富文本/HTML） */
+    private String detail;
     private String cover;
+    /** 优惠价 / 售价 */
     private BigDecimal price;
+    /** 原价（划线价） */
+    private BigDecimal originalPrice;
     private Integer stock;
     private Integer sales;
     private Integer status;

@@ -20,25 +20,14 @@ import java.util.Date;
 import java.util.HashMap;
 
 /**
- * jwt生成工具
- *
- * @author wzx
+ * jwt生成工具（对齐 material-app：userFlag 存枚举名，解析用 valueOf）
  */
 @Slf4j
 @Component
 public class JwtUtil {
 
-    /**
-     * 过期时间
-     */
     private static Long expire;
-    /**
-     * 密钥
-     */
     private static SecretKey secretKey;
-    /**
-     * 表头令牌键
-     */
     private static String tokenKey;
 
     public JwtUtil(@Value("${nova-mall.security.jwt-secret:nova-mall-jwt-secret-key-32bytes!!}") String secret,
@@ -60,6 +49,7 @@ public class JwtUtil {
         claims.put("id", user.getId());
         claims.put("userName", user.getUserName());
         claims.put("userRealName", user.getUserRealName());
+        // 与 material-app 一致：写入枚举名，例如 ADMIN
         claims.put("userFlag", user.getUserFlag() == null ? null : user.getUserFlag().name());
         long expMillis = System.currentTimeMillis() + JwtUtil.expire;
         return Jwts.builder()
@@ -70,9 +60,6 @@ public class JwtUtil {
                 .compact();
     }
 
-    /**
-     * 从请求中解析token
-     */
     public static LoginUser deToken(HttpServletRequest request) {
         String token = request.getHeader(JwtUtil.tokenKey);
         if (StrUtil.isBlank(token)) {
@@ -81,9 +68,6 @@ public class JwtUtil {
         return JwtUtil.deToken(token);
     }
 
-    /**
-     * 验证token
-     */
     public static LoginUser deToken(String token) {
         if (StrUtil.isBlank(token)) {
             throw new ServiceException("未登录");
@@ -94,9 +78,12 @@ public class JwtUtil {
             user.setId(claims.get("id", Integer.class));
             user.setUserName(claims.get("userName", String.class));
             user.setUserRealName(claims.get("userRealName", String.class));
-            String userFlag = claims.get("userFlag", String.class);
-            if (StrUtil.isNotBlank(userFlag)) {
-                user.setUserFlag(UserFlagEnum.valueOf(userFlag));
+            Object userFlag = claims.get("userFlag");
+            if (userFlag instanceof String s && StrUtil.isNotBlank(s)) {
+                user.setUserFlag(UserFlagEnum.valueOf(s));
+            } else if (userFlag instanceof Number n) {
+                // 兼容曾写入数字 code 的 token
+                user.setUserFlag(UserFlagEnum.getEnumByCode(n.intValue()));
             }
             user.setExpire(claims.getExpiration());
             user.setToken(token);
@@ -105,6 +92,8 @@ public class JwtUtil {
             throw new ServiceException("令牌不合法");
         } catch (ExpiredJwtException e) {
             throw new ServiceException("登录已过期");
+        } catch (IllegalArgumentException e) {
+            throw new ServiceException("令牌不合法");
         }
     }
 }

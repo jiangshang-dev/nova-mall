@@ -39,7 +39,8 @@ public class SecurityConfig {
                         .requestMatchers("/api/auth/login", "/api/auth/register",
                                 "/swagger-ui.html", "/swagger-ui/**", "/v3/api-docs/**",
                                 "/doc.html", "/webjars/**", "/favicon.ico").permitAll()
-                        .requestMatchers(HttpMethod.GET, "/api/goods/list", "/api/goods/*", "/api/goods/category/list").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/goods/list", "/api/goods/category/list",
+                                "/api/goods/*", "/api/goods/*/comments").permitAll()
                         .anyRequest().authenticated())
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
         return http.build();

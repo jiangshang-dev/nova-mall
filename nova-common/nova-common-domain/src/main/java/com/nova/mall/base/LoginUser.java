@@ -2,10 +2,11 @@ package com.nova.mall.base;
 
 import com.nova.mall.system.enums.UserFlagEnum;
 import lombok.Data;
+
 import java.util.Date;
 import java.util.List;
 
-/** 登录用户上下文 */
+/** 登录用户上下文（对齐 material-app：userFlag 使用枚举） */
 @Data
 public class LoginUser {
     private Integer id;
