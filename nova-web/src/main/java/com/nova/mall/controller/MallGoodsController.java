@@ -1,16 +1,21 @@
 package com.nova.mall.controller;
 
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.nova.mall.base.PageResponse;
 import com.nova.mall.debounce.annotation.Debounce;
+import com.nova.mall.dto.CategorySaveDTO;
 import com.nova.mall.entity.MallGoods;
 import com.nova.mall.entity.MallGoodsCategory;
+import com.nova.mall.exception.ServiceException;
 import com.nova.mall.log.annotation.OperLog;
 import com.nova.mall.log.enums.BusinessType;
 import com.nova.mall.service.MallGoodsCategoryService;
 import com.nova.mall.service.MallGoodsService;
 import com.nova.mall.utils.R;
+import com.nova.mall.vo.CategoryTreeVO;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import lombok.AllArgsConstructor;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
@@ -77,26 +82,60 @@ public class MallGoodsController {
         return R.ok();
     }
 
-    @Operation(summary = "分类列表")
+    @Operation(summary = "前台分类列表（扁平，仅启用）")
     @GetMapping("/category/list")
     public R<List<MallGoodsCategory>> categoryList() {
         return R.ok(mallGoodsCategoryService.listAll());
     }
 
-    @Operation(summary = "管理端分类列表")
+    @Operation(summary = "前台分类树（仅启用）")
+    @GetMapping("/category/tree")
+    public R<List<CategoryTreeVO>> categoryTree() {
+        return R.ok(mallGoodsCategoryService.listTree(true));
+    }
+
+    @Operation(summary = "管理端分类列表（扁平）")
     @PreAuthorize("hasAuthority('goods:category:list')")
     @GetMapping("/admin/category/list")
     public R<List<MallGoodsCategory>> adminCategoryList() {
-        return R.ok(mallGoodsCategoryService.list());
+        return R.ok(mallGoodsCategoryService.list(new LambdaQueryWrapper<MallGoodsCategory>()
+                .orderByAsc(MallGoodsCategory::getSort)
+                .orderByAsc(MallGoodsCategory::getId)));
     }
 
-    @Operation(summary = "新增分类")
+    @Operation(summary = "管理端分类树")
+    @PreAuthorize("hasAuthority('goods:category:list')")
+    @GetMapping("/admin/category/tree")
+    public R<List<CategoryTreeVO>> adminCategoryTree() {
+        return R.ok(mallGoodsCategoryService.listTree(false));
+    }
+
+    @Operation(summary = "新增/修改分类")
     @Debounce
-    @OperLog(title = "商品分类", businessType = BusinessType.INSERT)
+    @OperLog(title = "商品分类", businessType = BusinessType.UPDATE)
     @PreAuthorize("hasAuthority('goods:category:list')")
     @PostMapping("/admin/category")
-    public R<Void> addCategory(@RequestBody MallGoodsCategory category) {
-        mallGoodsCategoryService.save(category);
+    public R<MallGoodsCategory> saveCategory(@Valid @RequestBody CategorySaveDTO dto) {
+        return R.ok(mallGoodsCategoryService.saveCategory(dto));
+    }
+
+    @Operation(summary = "修改分类")
+    @Debounce
+    @OperLog(title = "商品分类", businessType = BusinessType.UPDATE)
+    @PreAuthorize("hasAuthority('goods:category:list')")
+    @PutMapping("/admin/category")
+    public R<MallGoodsCategory> updateCategory(@Valid @RequestBody CategorySaveDTO dto) {
+        if (dto.getId() == null) throw new ServiceException("分类ID不能为空");
+        return R.ok(mallGoodsCategoryService.saveCategory(dto));
+    }
+
+    @Operation(summary = "删除分类")
+    @Debounce
+    @OperLog(title = "商品分类", businessType = BusinessType.DELETE)
+    @PreAuthorize("hasAuthority('goods:category:list')")
+    @DeleteMapping("/admin/category/{id}")
+    public R<Void> removeCategory(@PathVariable Integer id) {
+        mallGoodsCategoryService.removeCategory(id);
         return R.ok();
     }
 }
