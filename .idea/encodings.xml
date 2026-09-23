@@ -15,6 +15,8 @@
     <file url="file://$PROJECT_DIR$/nova-common/nova-common-oss/src/main/resources" charset="UTF-8" />
     <file url="file://$PROJECT_DIR$/nova-common/nova-common-redis/src/main/java" charset="UTF-8" />
     <file url="file://$PROJECT_DIR$/nova-common/nova-common-redis/src/main/resources" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/nova-common/nova-common-search/src/main/java" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/nova-common/nova-common-search/src/main/resources" charset="UTF-8" />
     <file url="file://$PROJECT_DIR$/nova-common/nova-common-security/src/main/java" charset="UTF-8" />
     <file url="file://$PROJECT_DIR$/nova-common/nova-common-security/src/main/resources" charset="UTF-8" />
     <file url="file://$PROJECT_DIR$/nova-common/src/main/java" charset="UTF-8" />
