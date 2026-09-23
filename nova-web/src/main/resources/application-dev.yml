@@ -1,0 +1,47 @@
+spring:
+  datasource:
+    driver-class-name: com.p6spy.engine.spy.P6SpyDriver
+    url: jdbc:p6spy:mysql://localhost:3306/nova_mall?characterEncoding=utf8&useUnicode=true&useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&tinyInt1isBit=false
+    username: root
+    password: 123456
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      password:
+      database: 0
+      timeout: 10s
+  rabbitmq:
+    host: localhost
+    port: 5672
+    username: guest
+    password: guest
+    virtual-host: /
+  elasticsearch:
+    uris: http://localhost:9200
+nova-mall:
+  oss:
+    type: aliyun
+    accessKey: LTAI5tAMhyQ5M4ax36oedKcQ
+    secretKey: DqOLunL4Qt8bWSxhi2mEktfcUKacVG
+    endpoint: oss-cn-beijing.aliyuncs.com
+    bucketName: dinenova
+    folder: uploads
+  mq:
+    enabled: false
+mybatis-plus:
+  mapper-locations: classpath*:/mapper/**/*.xml
+  configuration:
+    map-underscore-to-camel-case: true
+  global-config:
+    db-config:
+      logic-delete-field: deleted
+      logic-delete-value: 1
+      logic-not-delete-value: 0
+logging:
+  level:
+    com.nova.mall: info
+system:
+  name: Nova商城
+website:
+  url: http://localhost:5173/
