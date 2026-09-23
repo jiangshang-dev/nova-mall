@@ -22,8 +22,8 @@ spring:
 nova-mall:
   oss:
     type: aliyun
-    accessKey: you
-    secretKey: your-secret-key
+    accessKey:
+    secretKey:
     endpoint: oss-cn-beijing.aliyuncs.com
     bucketName: dinenova
     folder: uploads
