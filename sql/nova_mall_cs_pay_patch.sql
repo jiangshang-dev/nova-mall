@@ -9,6 +9,7 @@ CREATE TABLE IF NOT EXISTS `mall_cs_session` (
   `member_name` VARCHAR(64) DEFAULT NULL COMMENT '会员昵称快照',
   `agent_id` INT DEFAULT NULL COMMENT '客服用户ID',
   `agent_name` VARCHAR(64) DEFAULT NULL COMMENT '客服昵称快照',
+  `client_ip` VARCHAR(64) DEFAULT NULL COMMENT '会员客户端IP',
   `status` TINYINT NOT NULL DEFAULT 0 COMMENT '0排队 1会话中 2已结束',
   `last_msg` VARCHAR(255) DEFAULT NULL COMMENT '最后一条消息摘要',
   `last_time` BIGINT DEFAULT NULL COMMENT '最后消息时间',

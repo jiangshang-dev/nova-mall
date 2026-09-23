@@ -14,4 +14,8 @@ public class PayInfoVO {
     private Boolean demoMode;
     private String payTip;
     private String mockPayUrl;
+    /** 微信 Native 扫码链接 */
+    private String codeUrl;
+    /** 渠道扩展参数 JSON */
+    private String payPayload;
 }

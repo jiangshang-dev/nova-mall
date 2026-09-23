@@ -13,6 +13,8 @@ import com.nova.mall.mapper.*;
 import com.nova.mall.service.MallCartService;
 import com.nova.mall.service.MallFreightService;
 import com.nova.mall.service.MallOrderService;
+import com.nova.mall.pay.PaymentChannel;
+import com.nova.mall.pay.PaymentChannelRegistry;
 import com.nova.mall.utils.UserUtil;
 import com.nova.mall.vo.FreightOptionVO;
 import com.nova.mall.vo.OrderItemVO;
@@ -36,6 +38,7 @@ public class MallOrderServiceImpl extends ServiceImpl<MallOrderMapper, MallOrder
     private final MallCartMapper cartMapper;
     private final MallCartService cartService;
     private final MallFreightService freightService;
+    private final PaymentChannelRegistry paymentChannelRegistry;
 
     private Integer requireUserId() {
         LoginUser user = UserUtil.getUser();
@@ -230,14 +233,35 @@ public class MallOrderServiceImpl extends ServiceImpl<MallOrderMapper, MallOrder
             this.updateById(order);
         }
         String type = order.getPayType();
+        PaymentChannel channel = paymentChannelRegistry.get(type);
+        PaymentChannel.PaymentCreateResult created = channel.create(new PaymentChannel.PaymentCreateRequest(
+                order.getOrderNo(),
+                order.getTotalAmount(),
+                "Nova Mall-" + order.getOrderNo(),
+                null,
+                null
+        ));
+
         PayInfoVO vo = new PayInfoVO();
         vo.setOrderNo(order.getOrderNo());
         vo.setPayType(type);
         vo.setPayTypeText(payTypeText(type));
         vo.setAmount(order.getTotalAmount());
-        vo.setDemoMode(true);
-        vo.setPayTip("当前为演示环境：未配置真实商户密钥，确认后将模拟" + payTypeText(type) + "支付成功");
+        vo.setDemoMode(created.demoMode());
+        vo.setCodeUrl(created.codeUrl());
+        vo.setPayPayload(created.payPayload());
         vo.setMockPayUrl("/order/pay/" + order.getOrderNo());
+        // PC 微信扫码：保证前端总能渲染二维码（配置不全时用演示码）
+        if ("wxpay".equals(type) && StrUtil.isBlank(vo.getCodeUrl())) {
+            vo.setCodeUrl("weixin://wxpay/bizpayurl?pr=DEMO" + order.getOrderNo());
+            if (vo.getDemoMode() == null) vo.setDemoMode(true);
+        }
+        if (Boolean.TRUE.equals(created.demoMode())) {
+            vo.setPayTip(StrUtil.blankToDefault(created.tip(),
+                    "当前为演示环境：未配置真实商户密钥，扫码区为演示码"));
+        } else {
+            vo.setPayTip(StrUtil.blankToDefault(created.tip(), "请使用微信扫一扫完成支付"));
+        }
         return vo;
     }
 
@@ -247,6 +271,17 @@ public class MallOrderServiceImpl extends ServiceImpl<MallOrderMapper, MallOrder
         Integer userId = requireUserId();
         MallOrder order = getByOrderNo(orderNo);
         if (!userId.equals(order.getUserId())) throw new ServiceException("订单不存在");
+        return markPaid(order, null);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public OrderVO markPaidByNotify(String orderNo, String tradeNo) {
+        MallOrder order = getByOrderNo(orderNo);
+        return markPaid(order, tradeNo);
+    }
+
+    private OrderVO markPaid(MallOrder order, String tradeNo) {
         if (order.getStatus() != null && order.getStatus() == 1) return toVO(order, true);
         if (order.getStatus() == null || order.getStatus() != 0) throw new ServiceException("订单状态不可支付");
         if ("cod".equals(order.getPayType())) throw new ServiceException("货到付款订单无需在线支付");
@@ -264,8 +299,12 @@ public class MallOrderServiceImpl extends ServiceImpl<MallOrderMapper, MallOrder
 
         order.setStatus(1);
         order.setPayTime(System.currentTimeMillis());
-        order.setPayTradeNo(("alipay".equals(order.getPayType()) ? "ALI" : "WX")
-                + System.currentTimeMillis() + IdUtil.fastSimpleUUID().substring(0, 8).toUpperCase());
+        if (StrUtil.isNotBlank(tradeNo)) {
+            order.setPayTradeNo(tradeNo);
+        } else {
+            order.setPayTradeNo(("alipay".equals(order.getPayType()) ? "ALI" : "WX")
+                    + System.currentTimeMillis() + IdUtil.fastSimpleUUID().substring(0, 8).toUpperCase());
+        }
         this.updateById(order);
         return toVO(order, true);
     }

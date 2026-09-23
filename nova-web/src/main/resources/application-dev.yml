@@ -29,6 +29,23 @@ nova-mall:
     folder: uploads
   mq:
     enabled: false
+  pay:
+    wxpay:
+      # 证书、notify-url 配齐后再改为 true
+      enabled: true
+      mch-id: "1668229108"
+      # 须与「商户API证书」序列号一致（账户中心→API安全→申请API证书）
+      serial-no: "751222C4A1A5653684094A90E87F14A23A58D07D"
+      # 产品中心 → AppID账号管理（已关联服务号）
+      app-id: "wx152fae16b36ddd2d"
+      # 须与商户平台「APIv3密钥」里设置的完全一致（32位）
+      api-v3-key: "E10ADC3949BA59ABBE56E057F20F883E"
+      # 必须是商户号 1668229108 自己下载的 apiclient_key.pem（不能用培训课别人商户的）
+      private-key-path: "classpath:cert/apiclient_key.pem"
+      # 公网 HTTPS，本机需内网穿透（不要用 xxx 占位，换成 natapp 给你的真实域名）
+      # 例：https://abc123.natappfree.cc/api/pay/notify/wxpay
+      notify-url: "https://xxx.natappfree.cc/api/pay/notify/wxpay"
+      trade-type: Native
 mybatis-plus:
   mapper-locations: classpath*:/mapper/**/*.xml
   configuration:

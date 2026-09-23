@@ -18,6 +18,13 @@
         <dependency><groupId>com.nova.mall</groupId><artifactId>nova-common-mq</artifactId><version>1.0-SNAPSHOT</version></dependency>
         <dependency><groupId>com.nova.mall</groupId><artifactId>nova-common-log</artifactId><version>1.0-SNAPSHOT</version></dependency>
         <dependency><groupId>com.nova.mall</groupId><artifactId>nova-common-oss</artifactId><version>1.0-SNAPSHOT</version></dependency>
+        <dependency><groupId>com.nova.mall</groupId><artifactId>nova-common-websocket</artifactId><version>1.0-SNAPSHOT</version></dependency>
         <dependency><groupId>com.baomidou</groupId><artifactId>mybatis-plus-spring-boot3-starter</artifactId></dependency>
+        <!-- 微信支付 APIv3 官方 SDK：配置齐全后走真实下单/回调 -->
+        <dependency>
+            <groupId>com.github.wechatpay-apiv3</groupId>
+            <artifactId>wechatpay-java</artifactId>
+            <version>0.2.17</version>
+        </dependency>
     </dependencies>
 </project>

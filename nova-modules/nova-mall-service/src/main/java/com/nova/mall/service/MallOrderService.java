@@ -20,6 +20,9 @@ public interface MallOrderService extends IService<MallOrder> {
 
     OrderVO mockPaySuccess(String orderNo);
 
+    /** 支付渠道异步通知入账 */
+    OrderVO markPaidByNotify(String orderNo, String tradeNo);
+
     void cancelMine(String orderNo);
 
     /** 后台核销货到付款订单（完成） */
