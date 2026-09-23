@@ -22,6 +22,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
 import java.util.Collections;
 import java.util.List;
 
@@ -40,7 +41,8 @@ public class AuthServiceImpl implements AuthService {
         SysUser user = sysUserMapper.selectOne(new LambdaQueryWrapper<SysUser>().eq(SysUser::getUserName, dto.getUsername()).last("LIMIT 1"));
         if (user == null) throw new ServiceException(401, "用户名或密码错误");
         if (user.getStatus() != null && user.getStatus() == 0) throw new ServiceException(403, "账号已禁用");
-        if (!passwordEncoder.matches(dto.getPassword(), user.getPassword())) throw new ServiceException(401, "用户名或密码错误");
+        if (!passwordEncoder.matches(dto.getPassword(), user.getPassword()))
+            throw new ServiceException(401, "用户名或密码错误");
         String clientType = StrUtil.blankToDefault(dto.getClientType(), "admin");
         if ("admin".equalsIgnoreCase(clientType) && (user.getUserFlag() == null || !UserFlagEnum.ADMIN.getCode().equals(user.getUserFlag()))) {
             throw new ServiceException(403, "非管理员账号，无法登录管理端");
