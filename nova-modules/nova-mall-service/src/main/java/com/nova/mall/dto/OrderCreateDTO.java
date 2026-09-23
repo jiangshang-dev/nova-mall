@@ -11,9 +11,13 @@ public class OrderCreateDTO {
     @NotNull(message = "请选择收货地址")
     private Long addressId;
 
-    /** alipay / wxpay */
+    /** alipay / wxpay / cod */
     @NotBlank(message = "请选择支付方式")
     private String payType;
+
+    /** hour / next_day / three_day */
+    @NotBlank(message = "请选择配送方式")
+    private String deliveryType;
 
     private String remark;
 

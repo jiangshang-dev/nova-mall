@@ -158,6 +158,15 @@ public class AuthServiceImpl implements AuthService {
         vo.setUserRealName(loginUser.getUserRealName());
         vo.setRoles(loginUser.getRoles());
         vo.setPermissions(loginUser.getPermissions());
+        SysUser db = sysUserMapper.selectById(loginUser.getId());
+        if (db != null) {
+            vo.setAvatar(db.getAvatar());
+            vo.setPhone(db.getPhone());
+            vo.setEmail(db.getEmail());
+            if (StrUtil.isNotBlank(db.getUserRealName())) {
+                vo.setUserRealName(db.getUserRealName());
+            }
+        }
         return vo;
     }
 

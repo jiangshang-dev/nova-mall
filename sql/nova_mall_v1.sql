@@ -171,8 +171,10 @@ CREATE TABLE `mall_order` (
   `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '订单ID',
   `order_no` VARCHAR(32) NOT NULL COMMENT '订单号',
   `user_id` INT NOT NULL COMMENT '下单用户ID',
-  `status` TINYINT NOT NULL DEFAULT 0 COMMENT '状态：0待支付 1已支付 2已取消 3已发货 4已完成',
-  `pay_type` VARCHAR(16) DEFAULT NULL COMMENT '支付方式：alipay/wxpay',
+  `status` TINYINT NOT NULL DEFAULT 0 COMMENT '状态：0待支付 1已支付 2已取消 3已发货 4已完成 5货到付款待核销',
+  `pay_type` VARCHAR(16) DEFAULT NULL COMMENT '支付方式：alipay/wxpay/cod',
+  `delivery_type` VARCHAR(32) DEFAULT NULL COMMENT '配送方式：hour/next_day/three_day',
+  `delivery_name` VARCHAR(64) DEFAULT NULL COMMENT '配送方式名称快照',
   `pay_time` BIGINT DEFAULT NULL COMMENT '支付时间（毫秒时间戳）',
   `pay_trade_no` VARCHAR(64) DEFAULT NULL COMMENT '第三方支付流水号',
   `total_amount` DECIMAL(10,2) NOT NULL DEFAULT 0.00 COMMENT '应付金额',
@@ -309,3 +311,41 @@ INSERT INTO `mall_goods_comment` (`goods_id`,`user_id`,`user_name`,`star`,`conte
 
 INSERT INTO `sys_config` (`config_key`,`config_value`,`remark`,`create_time`,`update_time`)
 VALUES ('site.name','Nova商城','站点名称',UNIX_TIMESTAMP()*1000,UNIX_TIMESTAMP()*1000);
+
+DROP TABLE IF EXISTS `mall_freight_setting`;
+CREATE TABLE `mall_freight_setting` (
+  `id` INT NOT NULL AUTO_INCREMENT COMMENT '主键',
+  `delivery_type` VARCHAR(32) NOT NULL COMMENT '配送编码：hour/next_day/three_day',
+  `delivery_name` VARCHAR(64) NOT NULL COMMENT '配送名称',
+  `freight` DECIMAL(10,2) NOT NULL DEFAULT 0.00 COMMENT '运费（元）',
+  `free_threshold` DECIMAL(10,2) DEFAULT NULL COMMENT '满额免运费阈值，空=不包邮',
+  `enabled` TINYINT NOT NULL DEFAULT 1 COMMENT '是否启用：1是 0否',
+  `sort` INT NOT NULL DEFAULT 0 COMMENT '排序',
+  `remark` VARCHAR(255) DEFAULT NULL COMMENT '备注',
+  `deleted` TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除：0否 1是',
+  `create_time` BIGINT DEFAULT NULL COMMENT '创建时间',
+  `update_time` BIGINT DEFAULT NULL COMMENT '更新时间',
+  `create_user` INT DEFAULT NULL COMMENT '创建人',
+  `update_user` INT DEFAULT NULL COMMENT '更新人',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_freight_type` (`delivery_type`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='配送运费设置表';
+
+DROP TABLE IF EXISTS `mall_shop_config`;
+CREATE TABLE `mall_shop_config` (
+  `config_key` VARCHAR(64) NOT NULL COMMENT '配置键',
+  `config_value` VARCHAR(512) DEFAULT NULL COMMENT '配置值',
+  `remark` VARCHAR(255) DEFAULT NULL COMMENT '备注',
+  `update_time` BIGINT DEFAULT NULL COMMENT '更新时间',
+  PRIMARY KEY (`config_key`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='店铺运营配置';
+
+INSERT INTO `mall_shop_config` (`config_key`,`config_value`,`remark`,`update_time`)
+VALUES ('service_city','北京市','仅配送该城市（不送外地）',UNIX_TIMESTAMP()*1000);
+
+INSERT INTO `mall_freight_setting`
+(`delivery_type`,`delivery_name`,`freight`,`free_threshold`,`enabled`,`sort`,`deleted`,`create_time`,`update_time`) VALUES
+('hour','同城一小时达',12.00,99.00,1,1,0,UNIX_TIMESTAMP()*1000,UNIX_TIMESTAMP()*1000),
+('next_day','隔天达',8.00,79.00,1,2,0,UNIX_TIMESTAMP()*1000,UNIX_TIMESTAMP()*1000),
+('three_day','三天内送达',0.00,NULL,1,3,0,UNIX_TIMESTAMP()*1000,UNIX_TIMESTAMP()*1000);
+

@@ -40,7 +40,7 @@ public class SecurityConfig {
                                 "/swagger-ui.html", "/swagger-ui/**", "/v3/api-docs/**",
                                 "/doc.html", "/webjars/**", "/favicon.ico").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/goods/list", "/api/goods/category/list",
-                                "/api/goods/category/tree",
+                                "/api/goods/category/tree", "/api/freight/options",
                                 "/api/goods/*", "/api/goods/*/comments").permitAll()
                         .anyRequest().authenticated())
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);

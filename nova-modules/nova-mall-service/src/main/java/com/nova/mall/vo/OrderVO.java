@@ -14,6 +14,8 @@ public class OrderVO {
     private String statusText;
     private String payType;
     private String payTypeText;
+    private String deliveryType;
+    private String deliveryName;
     private Long payTime;
     private String payTradeNo;
     private BigDecimal totalAmount;

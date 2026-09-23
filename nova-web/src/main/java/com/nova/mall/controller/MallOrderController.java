@@ -76,4 +76,22 @@ public class MallOrderController {
                                               @RequestParam(required = false) Integer status) {
         return R.ok(PageResponse.res(mallOrderService.pageAdmin(pageNum, pageSize, orderNo, status)));
     }
+
+    @Operation(summary = "后台发货")
+    @Debounce
+    @OperLog(title = "订单发货", businessType = BusinessType.UPDATE)
+    @PreAuthorize("hasAuthority('order:list')")
+    @PostMapping("/admin/{orderNo}/ship")
+    public R<OrderVO> ship(@PathVariable String orderNo) {
+        return R.ok(mallOrderService.ship(orderNo));
+    }
+
+    @Operation(summary = "货到付款核销完成")
+    @Debounce
+    @OperLog(title = "订单核销", businessType = BusinessType.UPDATE)
+    @PreAuthorize("hasAuthority('order:list')")
+    @PostMapping("/admin/{orderNo}/verify-cod")
+    public R<OrderVO> verifyCod(@PathVariable String orderNo) {
+        return R.ok(mallOrderService.verifyCod(orderNo));
+    }
 }

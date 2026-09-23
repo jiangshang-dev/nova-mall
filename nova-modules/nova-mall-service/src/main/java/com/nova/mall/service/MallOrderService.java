@@ -21,4 +21,12 @@ public interface MallOrderService extends IService<MallOrder> {
     OrderVO mockPaySuccess(String orderNo);
 
     void cancelMine(String orderNo);
+
+    /** 后台核销货到付款订单（完成） */
+    OrderVO verifyCod(String orderNo);
+
+    /** 后台发货 */
+    OrderVO ship(String orderNo);
+
+    boolean hasPurchased(Integer userId, Integer goodsId);
 }

@@ -22,6 +22,7 @@
         <module>nova-common-redis</module>
         <module>nova-common-mq</module>
         <module>nova-common-search</module>
+        <module>nova-common-websocket</module>
     </modules>
 
     <properties>

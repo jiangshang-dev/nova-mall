@@ -11,8 +11,10 @@ import com.nova.mall.entity.*;
 import com.nova.mall.exception.ServiceException;
 import com.nova.mall.mapper.*;
 import com.nova.mall.service.MallCartService;
+import com.nova.mall.service.MallFreightService;
 import com.nova.mall.service.MallOrderService;
 import com.nova.mall.utils.UserUtil;
+import com.nova.mall.vo.FreightOptionVO;
 import com.nova.mall.vo.OrderItemVO;
 import com.nova.mall.vo.OrderVO;
 import com.nova.mall.vo.PayInfoVO;
@@ -33,6 +35,7 @@ public class MallOrderServiceImpl extends ServiceImpl<MallOrderMapper, MallOrder
     private final MallGoodsMapper goodsMapper;
     private final MallCartMapper cartMapper;
     private final MallCartService cartService;
+    private final MallFreightService freightService;
 
     private Integer requireUserId() {
         LoginUser user = UserUtil.getUser();
@@ -49,6 +52,7 @@ public class MallOrderServiceImpl extends ServiceImpl<MallOrderMapper, MallOrder
         if (address == null || !userId.equals(address.getUserId())) {
             throw new ServiceException("收货地址不存在");
         }
+        assertLocalCity(address);
 
         List<Line> lines = buildLines(userId, dto);
         if (lines.isEmpty()) throw new ServiceException("没有可结算的商品");
@@ -57,16 +61,18 @@ public class MallOrderServiceImpl extends ServiceImpl<MallOrderMapper, MallOrder
                 .map(l -> l.price.multiply(BigDecimal.valueOf(l.quantity)))
                 .reduce(BigDecimal.ZERO, BigDecimal::add)
                 .setScale(2, RoundingMode.HALF_UP);
-        BigDecimal freight = BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
-        BigDecimal total = goodsAmount.add(freight);
+        FreightOptionVO freightOpt = freightService.calc(dto.getDeliveryType(), goodsAmount);
+        BigDecimal freight = freightOpt.getPayableFreight();
+        BigDecimal total = goodsAmount.add(freight).setScale(2, RoundingMode.HALF_UP);
 
         String orderNo = "NM" + System.currentTimeMillis() + IdUtil.getSnowflakeNextIdStr().substring(10);
 
         MallOrder order = new MallOrder();
         order.setOrderNo(orderNo);
         order.setUserId(userId);
-        order.setStatus(0);
         order.setPayType(payType);
+        order.setDeliveryType(freightOpt.getDeliveryType());
+        order.setDeliveryName(freightOpt.getDeliveryName());
         order.setTotalAmount(total);
         order.setGoodsAmount(goodsAmount);
         order.setFreightAmount(freight);
@@ -74,6 +80,14 @@ public class MallOrderServiceImpl extends ServiceImpl<MallOrderMapper, MallOrder
         order.setReceiverPhone(address.getReceiverPhone());
         order.setReceiverAddress(formatAddress(address));
         order.setRemark(StrUtil.blankToDefault(dto.getRemark(), null));
+
+        if ("cod".equals(payType)) {
+            // 货到付款：下单即占库存，待运营核销
+            order.setStatus(5);
+            deductStock(lines);
+        } else {
+            order.setStatus(0);
+        }
         this.save(order);
 
         for (Line line : lines) {
@@ -92,6 +106,31 @@ public class MallOrderServiceImpl extends ServiceImpl<MallOrderMapper, MallOrder
             }
         }
         return toVO(order, true);
+    }
+
+    private void assertLocalCity(MallAddress address) {
+        String serviceCity = freightService.getServiceCity();
+        String city = StrUtil.blankToDefault(address.getCity(), "");
+        String province = StrUtil.blankToDefault(address.getProvince(), "");
+        if (!city.contains(serviceCity.replace("市", ""))
+                && !serviceCity.contains(city.replace("市", ""))
+                && !province.contains(serviceCity.replace("市", ""))
+                && !serviceCity.equals(city)
+                && !serviceCity.equals(province)) {
+            throw new ServiceException("仅支持「" + serviceCity + "」同城配送，暂不支持外地");
+        }
+    }
+
+    private void deductStock(List<Line> lines) {
+        for (Line line : lines) {
+            MallGoods goods = goodsMapper.selectById(line.goodsId);
+            if (goods == null) continue;
+            int stock = goods.getStock() == null ? 0 : goods.getStock();
+            if (stock < line.quantity) throw new ServiceException("库存不足：" + goods.getName());
+            goods.setStock(stock - line.quantity);
+            goods.setSales((goods.getSales() == null ? 0 : goods.getSales()) + line.quantity);
+            goodsMapper.updateById(goods);
+        }
     }
 
     private List<Line> buildLines(Integer userId, OrderCreateDTO dto) {
@@ -143,7 +182,8 @@ public class MallOrderServiceImpl extends ServiceImpl<MallOrderMapper, MallOrder
     private static String normalizePayType(String payType) {
         if ("alipay".equalsIgnoreCase(payType)) return "alipay";
         if ("wxpay".equalsIgnoreCase(payType) || "wechat".equalsIgnoreCase(payType)) return "wxpay";
-        throw new ServiceException("仅支持支付宝或微信支付");
+        if ("cod".equalsIgnoreCase(payType) || "cash".equalsIgnoreCase(payType)) return "cod";
+        throw new ServiceException("请选择支付宝、微信或货到付款");
     }
 
     @Override
@@ -179,9 +219,14 @@ public class MallOrderServiceImpl extends ServiceImpl<MallOrderMapper, MallOrder
         Integer userId = requireUserId();
         MallOrder order = getByOrderNo(orderNo);
         if (!userId.equals(order.getUserId())) throw new ServiceException("订单不存在");
+        if ("cod".equals(order.getPayType()) || order.getStatus() != null && order.getStatus() == 5) {
+            throw new ServiceException("货到付款订单无需在线支付，请等待配送核销");
+        }
         if (order.getStatus() != null && order.getStatus() != 0) throw new ServiceException("订单状态不可支付");
         if (StrUtil.isNotBlank(payType)) {
-            order.setPayType(normalizePayType(payType));
+            String t = normalizePayType(payType);
+            if ("cod".equals(t)) throw new ServiceException("已生成订单不可改为货到付款");
+            order.setPayType(t);
             this.updateById(order);
         }
         String type = order.getPayType();
@@ -204,19 +249,18 @@ public class MallOrderServiceImpl extends ServiceImpl<MallOrderMapper, MallOrder
         if (!userId.equals(order.getUserId())) throw new ServiceException("订单不存在");
         if (order.getStatus() != null && order.getStatus() == 1) return toVO(order, true);
         if (order.getStatus() == null || order.getStatus() != 0) throw new ServiceException("订单状态不可支付");
+        if ("cod".equals(order.getPayType())) throw new ServiceException("货到付款订单无需在线支付");
 
         List<MallOrderItem> items = orderItemMapper.selectList(new LambdaQueryWrapper<MallOrderItem>()
                 .eq(MallOrderItem::getOrderId, order.getId()));
-        for (MallOrderItem item : items) {
-            MallGoods goods = goodsMapper.selectById(item.getGoodsId());
-            if (goods == null) continue;
-            int stock = goods.getStock() == null ? 0 : goods.getStock();
-            int qty = item.getQuantity() == null ? 0 : item.getQuantity();
-            if (stock < qty) throw new ServiceException("库存不足：" + goods.getName());
-            goods.setStock(stock - qty);
-            goods.setSales((goods.getSales() == null ? 0 : goods.getSales()) + qty);
-            goodsMapper.updateById(goods);
-        }
+        List<Line> lines = items.stream().map(i -> {
+            Line l = new Line();
+            l.goodsId = i.getGoodsId();
+            l.quantity = i.getQuantity() == null ? 0 : i.getQuantity();
+            l.name = i.getGoodsName();
+            return l;
+        }).collect(Collectors.toList());
+        deductStock(lines);
 
         order.setStatus(1);
         order.setPayTime(System.currentTimeMillis());
@@ -227,13 +271,73 @@ public class MallOrderServiceImpl extends ServiceImpl<MallOrderMapper, MallOrder
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void cancelMine(String orderNo) {
         Integer userId = requireUserId();
         MallOrder order = getByOrderNo(orderNo);
         if (!userId.equals(order.getUserId())) throw new ServiceException("订单不存在");
-        if (order.getStatus() == null || order.getStatus() != 0) throw new ServiceException("仅待支付订单可取消");
+        if (order.getStatus() == null || (order.getStatus() != 0 && order.getStatus() != 5)) {
+            throw new ServiceException("当前订单不可取消");
+        }
+        // 货到付款已扣库存，取消时回补
+        if (order.getStatus() == 5) {
+            List<MallOrderItem> items = orderItemMapper.selectList(new LambdaQueryWrapper<MallOrderItem>()
+                    .eq(MallOrderItem::getOrderId, order.getId()));
+            for (MallOrderItem i : items) {
+                MallGoods goods = goodsMapper.selectById(i.getGoodsId());
+                if (goods == null) continue;
+                int qty = i.getQuantity() == null ? 0 : i.getQuantity();
+                goods.setStock((goods.getStock() == null ? 0 : goods.getStock()) + qty);
+                int sales = (goods.getSales() == null ? 0 : goods.getSales()) - qty;
+                goods.setSales(Math.max(sales, 0));
+                goodsMapper.updateById(goods);
+            }
+        }
         order.setStatus(2);
         this.updateById(order);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public OrderVO verifyCod(String orderNo) {
+        MallOrder order = getByOrderNo(orderNo);
+        if (!"cod".equals(order.getPayType())) throw new ServiceException("非货到付款订单");
+        if (order.getStatus() == null || (order.getStatus() != 5 && order.getStatus() != 3)) {
+            throw new ServiceException("仅待核销/已发货的货到付款订单可核销");
+        }
+        order.setStatus(4);
+        order.setPayTime(System.currentTimeMillis());
+        if (StrUtil.isBlank(order.getPayTradeNo())) {
+            order.setPayTradeNo("COD" + System.currentTimeMillis());
+        }
+        this.updateById(order);
+        return toVO(order, true);
+    }
+
+    @Override
+    public OrderVO ship(String orderNo) {
+        MallOrder order = getByOrderNo(orderNo);
+        Integer st = order.getStatus();
+        if (st == null || (st != 1 && st != 5)) {
+            throw new ServiceException("仅已支付或货到付款待核销订单可发货");
+        }
+        order.setStatus(3);
+        this.updateById(order);
+        return toVO(order, true);
+    }
+
+    @Override
+    public boolean hasPurchased(Integer userId, Integer goodsId) {
+        if (userId == null || goodsId == null) return false;
+        List<MallOrder> orders = this.list(new LambdaQueryWrapper<MallOrder>()
+                .eq(MallOrder::getUserId, userId)
+                .in(MallOrder::getStatus, Arrays.asList(1, 3, 4, 5)));
+        if (orders.isEmpty()) return false;
+        List<Long> ids = orders.stream().map(MallOrder::getId).collect(Collectors.toList());
+        Long cnt = orderItemMapper.selectCount(new LambdaQueryWrapper<MallOrderItem>()
+                .in(MallOrderItem::getOrderId, ids)
+                .eq(MallOrderItem::getGoodsId, goodsId));
+        return cnt != null && cnt > 0;
     }
 
     private MallOrder getByOrderNo(String orderNo) {
@@ -274,6 +378,8 @@ public class MallOrderServiceImpl extends ServiceImpl<MallOrderMapper, MallOrder
         vo.setStatusText(statusText(order.getStatus()));
         vo.setPayType(order.getPayType());
         vo.setPayTypeText(payTypeText(order.getPayType()));
+        vo.setDeliveryType(order.getDeliveryType());
+        vo.setDeliveryName(order.getDeliveryName());
         vo.setPayTime(order.getPayTime());
         vo.setPayTradeNo(order.getPayTradeNo());
         vo.setTotalAmount(order.getTotalAmount());
@@ -306,6 +412,7 @@ public class MallOrderServiceImpl extends ServiceImpl<MallOrderMapper, MallOrder
             case 2 -> "已取消";
             case 3 -> "已发货";
             case 4 -> "已完成";
+            case 5 -> "货到付款·待核销";
             default -> "未知";
         };
     }
@@ -313,6 +420,7 @@ public class MallOrderServiceImpl extends ServiceImpl<MallOrderMapper, MallOrder
     private static String payTypeText(String payType) {
         if ("alipay".equals(payType)) return "支付宝";
         if ("wxpay".equals(payType)) return "微信支付";
+        if ("cod".equals(payType)) return "货到付款";
         return "未选择";
     }
 
